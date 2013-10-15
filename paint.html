@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+    <link rel="stylesheet" type="text/css" href="for index.css">
+    </head>
+
+	<body>
+    <div id= "all">
+
+    <div id="header">
+	<h1>Drawing Tool</h1>
+	</div>
+    
+    <div id="menu">
+	<h2>Menu</h2>
+
+      <label>Drawing Tool:</label>
+      <select id="dtool">
+      <option value="rectangle" >Rectangle</option>
+      <option value="circle">Circle</option>
+      <option value="line">Line</option>
+      </select>
+	  <br />
+      <label> Filled Color: </label>
+      <select id="fill">
+      <option value="">No Filled Color</option>
+      <option value="red">Red</option>    
+      <option value="blue">Blue</option>
+      <option value="white">White</option>
+      <option value="green">Green</option>
+      <option value="yellow">Yellow</option>
+      <option value="black">Black</option>
+      <option value="purple">Purple</option>
+      </select>
+ 	<br />
+      <label>Stroke Color: </label>
+      <select id="stroke">
+      <option value="">No stroke color</option>
+      <option value="red">Red</option>
+      <option value="blue">Blue</option>
+      <option value="white">White</option>
+      <option value="green">Green</option>
+      <option value="yellow">Yellow</option>
+      <option value="black" selected="selected">Black</option>
+      <option value="purple">Purple</option>
+      </select>
+	<br />
+      <label>Stroke Width: </label>
+      <select id="width">
+      <option value="0">0</option>
+      <option value="1" selected="selected">1</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+      <option value="6">6</option>
+      <option value="7">7</option>
+      <option value="8">8</option>
+      <option value="9">9</option>
+      <option value="10">10</option>
+      </select>
+	<br />
+	  <label>Mode: </label>
+      <select id="mode">
+      <option value="draw">Drawing</option>
+      <option value="edit">Editing</option>
+      </select>
+    <h3> Current choices </h3>
+		
+    	<div id="tools"><b>Tool:</b> Rectangle</div>
+		<div id="colors"><b>Filled Colour:</b> None</div>
+		<div id="strokes"><b>Stroke Colour:</b> black</div>
+		<div id="widths"><b>Stroke Width:</b> 1</div>
+		<div id="modes"><b>Mode:</b> Drawing</div>
+		
+	</div>
+
+    <div id="container">
+    	<div id= "clearAndCopy">
+			<button onclick="clearStages()">Clear</button>
+			<button onclick="copyShape()">Copy</button>
+		</div>
+    </div>
+
+    <div id="footer">Copyright</div>
+    </div>
+
+		<script src="http://d3lp1msu2r81bx.cloudfront.net/kjs/js/lib/kinetic-v4.5.3.min.js"></script>
+		<script defer>
+
+			// Create a stage
+			var stage = new Kinetic.Stage({
+				container: 'container',
+				width: 750,
+				height: 480
+			});
+
+			// Create the related layers
+			var messageLayer = new Kinetic.Layer();
+			var shapeLayer = new Kinetic.Layer();
+			var backgroundLayer = new Kinetic.Layer();
+
+			// Create a background shape to track the mouse coordinates, same size as the stage
+			var background = new Kinetic.Rect({
+				x: 0,
+				y: 0,
+				width: stage.getWidth(),
+				height: stage.getHeight(),
+				stroke: 'black',
+				strokeWidth: 1
+			});
+			backgroundLayer.add(background);
+			// Check the current status
+			var status = true;
+			// The mouse related variables
+			var start = false;  // Test the mouse is down or not
+			var mouse = {clickX: 0, clickY: 0, currentX: 0, currentY: 0}; // Store the mouse position
+			var shapes = [];  // Store all the shapes
+			var groups = [];
+			var shapeModified;
+			var groupModified;
+
+			// The tool variable
+			var tool;
+			var tool_default = 'rectangle';
+			var tool_select = document.getElementById('dtool');
+			tool_select.addEventListener('change', ev_tool_change, false);
+			var toolWrite = document.getElementById('tools');
+
+			// The filled colour variable
+			var color;
+			var color_default = null;
+			var fill_color = document.getElementById('fill');
+			fill_color.addEventListener('change', ev_color_change, false);
+			var colorWrite = document.getElementById('colors');
+
+			// The stroke colour variable
+			var stroke;
+			var stroke_default = 'black';
+			var stroke_color = document.getElementById('stroke');
+			stroke_color.addEventListener('change', ev_stroke_change, false);
+			var strokeWrite = document.getElementById('strokes');
+			
+			// The stroke width variables
+			var width;
+			var width_track = document.getElementById('width');
+			width_track.addEventListener('change', ev_width, false);
+			var widthWrite = document.getElementById('widths');
+			
+			// The mode variables
+			var mode;
+			var mode_track = document.getElementById('mode');
+			mode_track.addEventListener('change', ev_mode, false);
+			var modeWrite = document.getElementById('modes');
+
+			// Set the default values
+			function setDefault() {
+				if (!tool){
+					tool = tool_default;
+				}
+				if (!stroke) {
+					stroke = stroke_default;
+				}
+			};
+
+			// Keep Track of the tools
+			function ev_tool_change (ev) {
+				tool = this.value;
+				toolWrite.innerHTML = "<b>Tool:</b> " + tool;
+			};
+
+			// Keep track of the colours
+			function ev_color_change (ev) {
+				color = this.value;
+				colorWrite.innerHTML = "<b>Filled Color:</b> " + color;
+				if (mode == 'edit') {
+					if (shapeModified) {
+						shapeModified.setAttr('fill', color);
+						shapeLayer.draw();
+					}
+				}
+			};
+
+			// Keep track of the stroke colours
+			function ev_stroke_change (ev) {
+				stroke = this.value;
+				strokeWrite.innerHTML = "<b>Stroke Color:</b> " + stroke;
+				if (mode == 'edit'){
+					if (shapeModified) {
+						shapeModified.setAttr('stroke', stroke);
+						shapeLayer.draw();
+					}
+				}
+			};
+			
+			// Keep track of the stroke width
+			function ev_width(ev) {
+				width = this.value;
+				widthWrite.innerHTML = "<b>Stroke Width:</b> " + width;
+				if (mode == 'edit'){
+					if (shapeModified) {
+						shapeModified.setAttr('strokeWidth', width);
+						shapeLayer.draw();
+					}
+				}
+			};
+			function ev_mode(ev) {
+				mode = this.value;
+				if (mode == 'draw') {
+					status = true;
+					modeWrite.innerHTML = "<b>Mode:</b> Drawing";
+					backgroundLayer.moveToTop();
+					shapeModified = null;
+				} else {
+					status = false;
+					modeWrite.innerHTML = "<b>Mode:</b> Editing";
+					backgroundLayer.moveToBottom();
+				}
+
+			};
+
+			// Keep track of the mouse status  mousedown, mousemove, mouseup
+			background.on('mousedown', function() {
+				// Set the start variable equal to true
+				start = true;
+				var mousePos = stage.getMousePosition();
+				if (status) {
+					mouse.clickX = mousePos.x;
+					mouse.clickY = mousePos.y;
+					mouse.currentX = mousePos.x;
+					mouse.currentY = mousePos.y;
+					// Set the default settings
+					setDefault();
+					shape = drawShape(mouse.clickX, mouse.clickY, mouse.currentX, mouse.currentY, tool, color, stroke, width);
+				}
+
+			});
+
+			background.on('mousemove', function(){
+				if (status) {
+					if (start) {
+						var mousePos = stage.getMousePosition();  // Get the current mouse position
+						mouse.currentX = mousePos.x;
+						mouse.currentY = mousePos.y;
+						writeMessage(messageLayer, 'x:' + mouse.currentX + ', y: ' + mouse.currentY);
+						if (tool == 'rectangle') {
+							// Draw a rectangle
+							shape.setAttr('height', mouse.currentY - mouse.clickY);
+							shape.setAttr('width', mouse.currentX - mouse.clickX);
+						} else if (tool == 'circle') {
+							// Draw a circle
+							shape.setAttr('x', (mouse.clickX + mouse.currentX) / 2);
+							shape.setAttr('y', (mouse.clickY + mouse.currentY) / 2);
+							shape.setAttr('radius', Math.sqrt(Math.pow((mouse.currentX - mouse.clickX), 2) + Math.pow((mouse.currentY - mouse.clickY), 2)) / 2);
+						} else if (tool == 'line') {
+							// Draw a line
+							shape.setAttr('points' , [mouse.clickX,mouse.clickY,mouse.currentX,mouse.currentY]);
+						}
+						shapeLayer.draw();
+					}
+				}
+			});
+
+			background.on('mouseup', function() {
+				start = false;  // User is not pressing the mouse
+				if (status){
+					if (mouse.currentX == mouse.clickX && mouse.currentY == mouse.clickY) {
+						shape.remove();
+						//shapeLayer.draw();
+					} else {
+						shapes.push(shape);
+						// Add resizing feature to the shape
+						if (tool == 'rectangle') {
+							resizeRectangle(shape);
+						} else if (tool == 'circle') {
+							resizeCircle(shape);
+						} else if (tool == 'line'){
+							resizeLine(shape, mouse.clickX, mouse.clickY, mouse.currentX, mouse.currentY);
+						}
+					}
+				}
+			});
+
+			// Draw the shapes
+			function drawShape(cX, cY, x, y, tool, fillColor, strokeColor, strokeWidth) {
+				if (tool == 'rectangle') {
+					var shape = new Kinetic.Rect({
+						x: cX,
+						y: cY,
+						width: x - cX,
+						height: y - cY,
+						stroke: strokeColor,
+						fill: fillColor,
+						strokeWidth: strokeWidth,
+						name: 'image'
+					});
+				} else if (tool == 'circle') {
+					var shape = new Kinetic.Circle({
+						x: (cX + x) / 2,
+						y: (cY + y) / 2,
+						radius: Math.sqrt(Math.pow((x - cX), 2) + Math.pow((y - cY), 2)) / 2,
+						fill: fillColor,
+						stroke: strokeColor,
+						strokeWidth: strokeWidth,
+						name: 'image'
+					});
+				} else if (tool == 'line') {
+					var shape = new Kinetic.Line({
+						points: [cX, cY, x, y],
+						stroke: strokeColor,
+						strokeWidth: strokeWidth,
+						fill: fillColor,
+						lineJoin: 'round',
+						name: 'image'
+					});
+				}
+				shape.on('mouseover', function() {
+					document.body.style.cursor = 'pointer';
+				});
+				shape.on('mouseout', function() {
+					document.body.style.cursor = 'default';
+				});
+				shape.on('mousedown', function() {
+					//this.moveToTop();
+					shapeModified = this;
+				});
+				shapeLayer.add(shape);
+				shapeLayer.draw();
+				return shape;
+			};
+
+			// Display message for the mouse coordinates
+			function writeMessage(messageLayer, message) {
+				var context = messageLayer.getContext();
+				messageLayer.clear();
+				context.font = '18pt Calibri';
+				context.fillStyle = 'black';
+				context.fillText(message, 50, 25);  // The position to be displayed on the stage
+			};
+
+			// Clear the stage
+			function clearStages() {
+				/*for (var i = 0; i < groups.length; i++) {
+					groups[i].remove();
+				}/
+				
+				/*for (var j = 0; j < shapes.length; j++) {
+					shapes[j].remove();
+				}*/
+				if (!status) {
+					shapeLayer.remove();
+					shapeLayer = new Kinetic.Layer();
+					stage.add(shapeLayer);
+					shapeLayer.draw();
+				}
+				//shapeLayer.removeChildren();
+				//shapeLayer.draw();
+				//stage.add(shapeLayer);
+			};
+			
+			// Copy the shape
+			function copyShape() {
+				// Check status
+				if (!status) {
+					// If the current mode is editing, then allow copying
+					if (groupModified) {
+						var x = groupModified.getAttr('x');
+						var y = groupModified.getAttr('y');
+						var clone = groupModified.clone({
+							x: x + 3,
+							y: y + 3
+						});
+						groupModified = clone;
+						shapeLayer.add(clone);
+						shapeLayer.draw();
+					}
+				}
+			};
+			// Resize the shape
+			function updateRectangle(activeAnchor) {
+				var group = activeAnchor.getParent();
+				var topLeft = group.get('.topLeft')[0];
+				var topRight = group.get('.topRight')[0];
+				var bottomRight = group.get('.bottomRight')[0];
+				var bottomLeft = group.get('.bottomLeft')[0];
+				var rectangle = group.get('.image')[0];
+
+				var anchorX = activeAnchor.getX();
+				var anchorY = activeAnchor.getY();
+
+				// update anchor positions
+				switch (activeAnchor.getName()) {
+					case 'topLeft':
+						topRight.setY(anchorY);
+						bottomLeft.setX(anchorX);
+						break;
+					case 'topRight':
+						topLeft.setY(anchorY);
+						bottomRight.setX(anchorX);
+						break;
+					case 'bottomRight':
+						bottomLeft.setY(anchorY);
+						topRight.setX(anchorX); 
+						break;
+					case 'bottomLeft':
+						bottomRight.setY(anchorY);
+						topLeft.setX(anchorX); 
+						break;
+				}
+
+				rectangle.setPosition(topLeft.getPosition());
+
+				var width = topRight.getX() - topLeft.getX();
+				var height = bottomLeft.getY() - topLeft.getY();
+				if(width && height) {
+					rectangle.setSize(width, height);
+				}
+			}
+			
+			function updateCircle(activeAnchor) {
+				var group = activeAnchor.getParent();
+
+				var topLeft = group.get('.topLeft')[0];
+				var bottomRight = group.get('.bottomRight')[0];
+				var image = group.get('.image')[0];
+
+				var anchorX = activeAnchor.getX();
+				var anchorY = activeAnchor.getY();
+				var name = activeAnchor.getAttr('name');
+				
+				if (name == 'topLeft') {
+					var x = bottomRight.getX();
+					var y = bottomRight.getY();
+					var radius = Math.sqrt(Math.pow((anchorX - x), 2) + Math.pow((anchorY - y), 2)) / 2
+					image.setAttr('x', (anchorX + x) / 2);
+					image.setAttr('y', (anchorY + y) / 2);
+					image.setAttr('radius', radius);
+				} else {
+					var x = topLeft.getX();
+					var y = topLeft.getY();
+					var radius = Math.sqrt(Math.pow((anchorX - x), 2) + Math.pow((anchorY - y), 2)) / 2;
+					image.setAttr('x', (anchorX + topLeft.getX()) / 2);
+					image.setAttr('y', (anchorY + topLeft.getY()) / 2);
+					image.setAttr('radius', radius);
+				}
+			};
+			
+			function updateLine(activeAnchor) {
+				var group = activeAnchor.getParent();
+
+				var topLeft = group.get('.topLeft')[0];
+				var bottomRight = group.get('.bottomRight')[0];
+				var line = group.get('.image')[0];
+
+				var anchorX = activeAnchor.getX();
+				var anchorY = activeAnchor.getY();
+				var name = activeAnchor.getAttr('name');
+				
+				if (name == 'topLeft') {
+					var x = bottomRight.getX();
+					var y = bottomRight.getY();
+					line.setAttr('points', [anchorX, anchorY, x, y]);
+				} else {
+					var x = topLeft.getX();
+					var y = topLeft.getY();
+					line.setAttr('points', [anchorX, anchorY, x, y]);
+				}
+			};
+
+
+			
+			function addAnchorRectangle(group, x, y, name) {
+				var stage = group.getStage();
+				var layer = group.getLayer();
+
+				var anchor = new Kinetic.Circle({
+					x: x,
+					y: y,
+					stroke: '#666',
+					fill: '#ddd',
+					strokeWidth: 1,
+					radius: 5,
+					name: name,
+					draggable: true,
+					dragOnTop: false
+				});
+
+				anchor.on('dragmove', function() {
+					updateRectangle(this);
+					layer.draw();
+				});
+				anchor.on('mousedown touchstart', function() {
+					group.setDraggable(false);
+					this.moveToTop();
+				});
+				anchor.on('dragend', function() {
+					group.setDraggable(true);
+					layer.draw();
+				});
+				// add hover styling
+				anchor.on('mouseover', function() {
+				var layer = this.getLayer();
+					document.body.style.cursor = 'pointer';
+					this.setStrokeWidth(2);
+					layer.draw();
+				});
+				anchor.on('mouseout', function() {
+				var layer = this.getLayer();
+					document.body.style.cursor = 'default';
+					this.setStrokeWidth(1);
+					layer.draw();
+				});
+
+				group.add(anchor);
+			}
+			
+			function addAnchorCircle(group, x, y, name) {
+				var stage = group.getStage();
+				var layer = group.getLayer();
+
+				var anchor = new Kinetic.Circle({
+					x: x,
+					y: y,
+					stroke: '#666',
+					fill: '#ddd',
+					strokeWidth: 1,
+					radius: 5,
+					name: name,
+					draggable: true,
+					dragOnTop: false
+				});
+
+				anchor.on('dragmove', function() {
+					updateCircle(this);
+					layer.draw();
+				});
+				anchor.on('mousedown touchstart', function() {
+					group.setDraggable(false);
+					this.moveToTop();
+				});
+				anchor.on('dragend', function() {
+					group.setDraggable(true);
+					layer.draw();
+				});
+				// add hover styling
+				anchor.on('mouseover', function() {
+				var layer = this.getLayer();
+					document.body.style.cursor = 'pointer';
+					this.setStrokeWidth(2);
+					layer.draw();
+				});
+				anchor.on('mouseout', function() {
+				var layer = this.getLayer();
+					document.body.style.cursor = 'default';
+					this.setStrokeWidth(1);
+					layer.draw();
+				});
+
+				group.add(anchor);
+			};
+			
+			// anchor function for the line object
+			function addAnchorLine(group, x, y, name) {
+				var stage = group.getStage();
+				var layer = group.getLayer();
+
+				var anchor = new Kinetic.Circle({
+					x: x,
+					y: y,
+					stroke: '#666',
+					fill: '#ddd',
+					strokeWidth: 1,
+					radius: 5,
+					name: name,
+					draggable: true,
+					dragOnTop: false
+				});
+
+				anchor.on('dragmove', function() {
+					updateLine(this);
+					layer.draw();
+				});
+				anchor.on('mousedown touchstart', function() {
+					group.setDraggable(false);
+					this.moveToTop();
+				});
+				anchor.on('dragend', function() {
+					group.setDraggable(true);
+					layer.draw();
+				});
+				// add hover styling
+				anchor.on('mouseover', function() {
+				var layer = this.getLayer();
+					document.body.style.cursor = 'pointer';
+					this.setStrokeWidth(2);
+					layer.draw();
+				});
+				anchor.on('mouseout', function() {
+				var layer = this.getLayer();
+					document.body.style.cursor = 'default';
+					this.setStrokeWidth(1);
+					layer.draw();
+				});
+
+				group.add(anchor);
+			};
+			
+			// Function to resize a rectangle
+			function resizeRectangle(rectangle) {
+
+					var rectangleGroup = new Kinetic.Group({
+						x: 0,
+						y: 0,
+						draggable: true
+					});
+					rectangleGroup.add(rectangle);
+					shapeLayer.add(rectangleGroup);
+					
+					// Listen to mousedown event
+					rectangleGroup.on('mousedown', function() {
+						this.moveToTop();
+						groupModified = this;
+						shapeLayer.draw();
+					});
+					rectangleGroup.on('dblclick', function() {
+						this.removeChildren();
+						shapelayer.removeChildren(this);
+						shapeLayer.draw();
+					});
+
+					// Add anchors to the four angles of the rectangle
+					addAnchorRectangle(rectangleGroup, rectangle.getAttr('x'), rectangle.getAttr('y'), 'topLeft');
+					addAnchorRectangle(rectangleGroup, rectangle.getAttr('x') + rectangle.getAttr('width'), rectangle.getAttr('y'), 'topRight');
+					addAnchorRectangle(rectangleGroup, rectangle.getAttr('x'), rectangle.getAttr('y') + rectangle.getAttr('height'), 'bottomLeft');
+					addAnchorRectangle(rectangleGroup, rectangle.getAttr('x') + rectangle.getAttr('width'), rectangle.getAttr('y') + rectangle.getAttr('height'), 'bottomRight');
+					shapeLayer.draw();
+					groups.push(rectangleGroup);
+			};
+			
+			// Function to resize a circle
+			function resizeCircle(circle) {
+				var circleGroup = new Kinetic.Group({
+					x: 0,
+					y: 0,
+					draggable: true
+				});
+				circleGroup.add(circle);
+				shapeLayer.add(circleGroup);
+				var radius = circle.getAttr('radius');
+
+				// Listen to mousedown event
+				circleGroup.on('mousedown', function() {
+					this.moveToTop();
+					groupModified = this;
+					shapeLayer.draw();
+				});
+				
+				// Add anchor to circle on position top left and bottom right
+				addAnchorCircle(circleGroup, circle.getAttr('x') + Math.sqrt(2) * (radius/2), circle.getAttr('y') + Math.sqrt(2) * (radius/2), 'bottomRight');
+				addAnchorCircle(circleGroup, circle.getAttr('x') - Math.sqrt(2) * (radius/2), circle.getAttr('y') - Math.sqrt(2) * (radius/2), 'topLeft');
+				shapeLayer.draw();
+				groups.push(circleGroup);
+			};
+			
+			// Resizing the line object
+			function resizeLine(line, topX, topY, bottomX, bottomY) {
+				var lineGroup = new Kinetic.Group({
+					x: 0,
+					y: 0,
+					draggable: true
+				});
+				lineGroup.add(line);
+				shapeLayer.add(lineGroup);
+				
+				// Listen to mousedown event
+				lineGroup.on('mousedown', function() {
+					this.moveToTop();
+					groupModified = this;
+					shapeLayer.draw();
+				});
+				
+				// Add anchors to line
+				addAnchorLine(lineGroup, topX, topY, 'topLeft');
+				addAnchorLine(lineGroup, bottomX, bottomY, 'bottomRight');
+				shapeLayer.draw();
+				groups.push(lineGroup);
+			};
+
+			function remove() {
+				groupModified.remove(shapeModified);
+				shapeModified.remove();
+				groupModified.remove();
+				shapeLayer.remove(shapeModified);
+				//shapeLayer.remove(groupModified);
+				shapeLayer.draw();
+			};
+			// the background layer is at the top, shape layer at the top
+			//stage.add(backgroundLayer);
+			stage.add(shapeLayer);
+			stage.add(messageLayer);
+			stage.add(backgroundLayer);
+		</script>
+
+	</body>
+
+</html>
