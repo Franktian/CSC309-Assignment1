@@ -20,6 +20,3 @@ Resize the shape.
 Change the shape's color, fill, and outline width.
 Copy and paste.
 Clear the canvas.
-
-And I would like thank my girl friend, Roujia Li, of contributing to this project. She gave us a lot of advices on styling
-the format of our web page so that to make it much more user-friendly. And she took the responsibiity of CSS sheet
